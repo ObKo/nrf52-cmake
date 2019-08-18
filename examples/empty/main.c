@@ -1,5 +1,5 @@
-#include <stdio.h>
-
-void main()
+int main()
 {
+    for(;;);
+    return 0;
 }
