@@ -1,6 +1,6 @@
 ## Minimal example
 CMakeLists.txt:
-```
+```cmake
 # Can be setted in cli
 set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../../nrf52.cmake)
 
@@ -13,7 +13,7 @@ set_target_properties(example PROPERTIES NRF52_CHIP NRF52832-QFAB)
 nrf52_target(example)
 ```
 main.c:
-```
+```cpp
 int main()
 {
     for(;;);
