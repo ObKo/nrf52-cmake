@@ -69,6 +69,9 @@ function(nrf52_add_sdk_startup TARGET)
     if(TARGET_NO_SDK)
         return()
     endif()
+
+    target_include_directories(${TARGET} PRIVATE "${NRF5_SDK_PATH}/components/toolchain/cmsis/include")
+    target_include_directories(${TARGET} PRIVATE "${NRF5_SDK_PATH}/modules/nrfx/mdk")
     
     nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_INTERNAL NRF52_CHIP_VARIANT)
     
@@ -91,7 +94,6 @@ function(nrf52_add_sdk_startup TARGET)
     else()
         target_sources(${TARGET} PRIVATE "${STARTUP_FILE}" "${SYSTEM_FILE}")
     endif()
-    target_include_directories(${TARGET} PRIVATE "${NRF5_SDK_PATH}/components/toolchain/cmsis/include")
 endfunction()
 
 function(nrf52_add_linker_script TARGET SCRIPT)
