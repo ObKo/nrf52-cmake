@@ -15,7 +15,8 @@ if(NOT TOOLCHAIN_TRIPLET)
     set(TOOLCHAIN_TRIPLET "arm-none-eabi")
     message(STATUS "No TOOLCHAIN_TRIPLET specified, using default: " ${TOOLCHAIN_TRIPLET})
 endif()
-
+
+
 if(NOT NRF5_SDK_PATH)
      set(NRF5_SDK_PATH "/opt/nRF5_SDK")
      message(STATUS "No NRF5_SDK_PATH specified, using default: " ${NRF5_SDK_PATH})
@@ -27,7 +28,7 @@ set(TOOLCHAIN_BIN_PATH "${TOOLCHAIN_PREFIX}/bin")
 set(TOOLCHAIN_INC_PATH "${TOOLCHAIN_PREFIX}/${TOOLCHAIN_TRIPLET}/include")
 set(TOOLCHAIN_LIB_PATH "${TOOLCHAIN_PREFIX}/${TOOLCHAIN_TRIPLET}/lib")
 
-set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 set(CMAKE_C_COMPILER "${TOOLCHAIN_BIN_PATH}/${TOOLCHAIN_TRIPLET}-gcc")
 set(CMAKE_CXX_COMPILER "${TOOLCHAIN_BIN_PATH}/${TOOLCHAIN_TRIPLET}-g++")
 set(CMAKE_ASM_COMPILER "${TOOLCHAIN_BIN_PATH}/${TOOLCHAIN_TRIPLET}-gcc")
@@ -72,14 +73,14 @@ function(nrf52_add_sdk_startup TARGET)
     nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_INTERNAL NRF52_CHIP_VARIANT)
     
     unset(STARTUP_FILE CACHE)
-    find_file(STARTUP_FILE 
+    find_file(STARTUP_FILE 
         NAMES gcc_startup_nrf52${NRF52_CHIP}.S gcc_startup_nrf52.S
         PATHS "${NRF5_SDK_PATH}/modules/nrfx/mdk"
         NO_DEFAULT_PATH
     )
     
     unset(SYSTEM_FILE CACHE)
-    find_file(SYSTEM_FILE 
+    find_file(SYSTEM_FILE 
         NAMES system_nrf52${NRF52_CHIP}.c system_nrf52.c
         PATHS "${NRF5_SDK_PATH}/modules/nrfx/mdk"
         NO_DEFAULT_PATH
@@ -117,7 +118,7 @@ function(nrf52_add_sdk_linker_script TARGET)
         set(LINKER_SCRIPT_NAMES nrf52${NRF52_CHIP}_xx${NRF52_CHIP_VARIANT_LOWER}.ld nrf52_xx${NRF52_CHIP_VARIANT_LOWER}.ld)
     endif()
     unset(LINKER_FILE CACHE)
-    find_file(LINKER_FILE 
+    find_file(LINKER_FILE 
         NAMES ${LINKER_SCRIPT_NAMES}
         PATHS "${NRF5_SDK_PATH}/${LINKER_SCRIPT_PATH}"
         NO_DEFAULT_PATH
@@ -129,10 +130,8 @@ function(nrf52_add_sdk_linker_script TARGET)
     endif()
 endfunction()
 
-function(nrf52_target TARGET)
-    get_target_property(TARGET_TYPE ${TARGET} TYPE)
+function(nrf52_configure_compiler TARGET)
     nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_INTERNAL NRF52_CHIP_VARIANT)
-    
     if(NRF52_CHIP EQUAL 840)
         target_compile_options(${TARGET} PRIVATE -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16)
         target_compile_definitions(${TARGET} PRIVATE -DFLOAT_ABI_HARD)
@@ -153,7 +152,11 @@ function(nrf52_target TARGET)
     target_compile_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wall -ffunction-sections -fdata-sections -fno-strict-aliasing -fno-builtin -fshort-enums)
     target_compile_definitions(${TARGET} PRIVATE -DNRF52 -DNRF52${NRF52_CHIP}_XX${NRF52_CHIP_VARIANT} -D${NRF52_CHIP_INTERNAL})
     target_link_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wl,--gc-sections --specs=nano.specs)
-    
+endfunction()
+
+function(nrf52_target TARGET)
+    get_target_property(TARGET_TYPE ${TARGET} TYPE)    
+    nrf52_configure_compiler(${TARGET})
     if(TARGET_TYPE STREQUAL EXECUTABLE)
         nrf52_add_sdk_startup(${TARGET})
         nrf52_add_sdk_linker_script(${TARGET})
