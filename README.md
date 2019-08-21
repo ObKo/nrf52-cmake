@@ -85,14 +85,14 @@ NRF5 SDK. You'll have to provide all sources and linker script by yourself.
 comon linker script from NRF5 SDK.
 
 * `SOFTDEVICE` - **optional** property telling that target will be running 
-together with SoftDevice firmware (so correct linker script will be used).
+together with specific SoftDevice firmware (so correct linker script will be 
+used). You should specify SoftDevice type here (S140, S132, etc).
 
 nrf52-cmake adds following useful functions:
 
-* `nrf52_get_chip(<target> <chip> <internal> <variant>)` - parses `NRF52_CHIP`
+* `nrf52_get_chip(<target> <chip> <variant>)` - parses `NRF52_CHIP`
 property on `<target>` and outputs some useful information:
     - `<chip>` - specific chip code (840, 832, etc.)
-    - `<internal>` - Nordic code for device (S140, S132, etc.)
     - `<variant>` - chip variant (AA, AB, etc), default will be AA.
 
 * `nrf52_add_sdk_startup(<target>)` - search and adds startup sources to target 
@@ -109,4 +109,8 @@ target.
 * `nrf52_target(<target>)` - process target and and make everything listed 
 above.
 
+* `nrf52_add_softdevice_target(<target> SOFTDEVICE <softdevice> [ADAPTER <adapter>])` -
+add custom target `<target>` that flash SoftDevice firmware to device using 
+openocd and `<adapter>` hardware adapter (jlink by default). SoftDevice variant 
+(S140, S132, S332, etc) should be specified by `SOFTDEVICE` parameter.
 

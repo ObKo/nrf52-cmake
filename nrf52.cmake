@@ -2,7 +2,6 @@ get_filename_component(NRF52_CMAKE_DIR ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 list(APPEND CMAKE_MODULE_PATH ${NRF52_CMAKE_DIR})
 
 set(NRF52_SUPPORTED_DEVICES 840 832 811 810)
-set(NRF52_INTERNAL_NAMES S140 S132 S112 S110)
 
 if(NOT TOOLCHAIN_PATH)
      set(TOOLCHAIN_PATH "/usr")
@@ -36,7 +35,7 @@ set(CMAKE_ASM_COMPILER "${TOOLCHAIN_BIN_PATH}/${TOOLCHAIN_TRIPLET}-gcc")
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
-function(nrf52_get_chip TARGET CHIP INTERNAL VARIANT)
+function(nrf52_get_chip TARGET CHIP VARIANT)
     get_target_property(NRF52_CHIP_TARGET ${TARGET} NRF52_CHIP)
     string(TOUPPER ${NRF52_CHIP_TARGET} NRF52_CHIP_TARGET)
     
@@ -56,11 +55,8 @@ function(nrf52_get_chip TARGET CHIP INTERNAL VARIANT)
     if (NRF52_CHIP_INDEX EQUAL -1)
         message(FATAL_ERROR "Unknown chip ${NRF52_CHIP_TARGET}")
     endif()
-    
-    list(GET NRF52_INTERNAL_NAMES ${NRF52_CHIP_INDEX} NRF52_INTERNAL)
-    
+        
     set(${CHIP} ${NRF52_CHIP} PARENT_SCOPE)
-    set(${INTERNAL} ${NRF52_INTERNAL} PARENT_SCOPE)
     set(${VARIANT} ${NRF52_VARIANT} PARENT_SCOPE)
 endfunction()
 
@@ -73,7 +69,7 @@ function(nrf52_add_sdk_startup TARGET)
     target_include_directories(${TARGET} PRIVATE "${NRF5_SDK_PATH}/components/toolchain/cmsis/include")
     target_include_directories(${TARGET} PRIVATE "${NRF5_SDK_PATH}/modules/nrfx/mdk")
     
-    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_INTERNAL NRF52_CHIP_VARIANT)
+    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_VARIANT)
     
     unset(STARTUP_FILE CACHE)
     find_file(STARTUP_FILE 
@@ -107,13 +103,13 @@ function(nrf52_add_sdk_linker_script TARGET)
     if(CUSTOM_LINKER_SCRIPT)
         return()
     endif()
-    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_INTERNAL NRF52_CHIP_VARIANT)
+    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_VARIANT)
     
     if(TARGET_SOFTDEVICE)
         string(TOLOWER ${NRF52_CHIP_VARIANT} NRF52_CHIP_VARIANT_LOWER)
-        string(TOLOWER ${NRF52_CHIP_INTERNAL} NRF52_CHIP_INTERNAL_LOWER)
-        set(LINKER_SCRIPT_PATH components/softdevice/${NRF52_CHIP_INTERNAL_LOWER}/toolchain/armgcc)
-        set(LINKER_SCRIPT_NAMES armgcc_${NRF52_CHIP_INTERNAL_LOWER}_nrf52${NRF52_CHIP}_xx${NRF52_CHIP_VARIANT_LOWER}.ld)
+        string(TOLOWER ${TARGET_SOFTDEVICE} TARGET_SOFTDEVICE_LOWER)
+        set(LINKER_SCRIPT_PATH components/softdevice/${TARGET_SOFTDEVICE_LOWER}/toolchain/armgcc)
+        set(LINKER_SCRIPT_NAMES armgcc_${TARGET_SOFTDEVICE_LOWER}_nrf52${NRF52_CHIP}_xx${NRF52_CHIP_VARIANT_LOWER}.ld)
     else()
         string(TOLOWER ${NRF52_CHIP_VARIANT} NRF52_CHIP_VARIANT_LOWER)
         set(LINKER_SCRIPT_PATH modules/nrfx/mdk)
@@ -133,7 +129,8 @@ function(nrf52_add_sdk_linker_script TARGET)
 endfunction()
 
 function(nrf52_configure_compiler TARGET)
-    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_INTERNAL NRF52_CHIP_VARIANT)
+    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_VARIANT)
+    
     if(NRF52_CHIP EQUAL 840)
         target_compile_options(${TARGET} PRIVATE -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16)
         target_compile_definitions(${TARGET} PRIVATE -DFLOAT_ABI_HARD)
@@ -151,9 +148,16 @@ function(nrf52_configure_compiler TARGET)
         target_compile_definitions(${TARGET} PRIVATE -DFLOAT_ABI_SOFT)
         target_link_options(${TARGET} PRIVATE -mcpu=cortex-m4 -mfloat-abi=soft)
     endif()
+    
     target_compile_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wall -ffunction-sections -fdata-sections -fno-strict-aliasing -fno-builtin -fshort-enums)
     target_compile_definitions(${TARGET} PRIVATE -DNRF52 -DNRF52${NRF52_CHIP}_XX${NRF52_CHIP_VARIANT} -D${NRF52_CHIP_INTERNAL})
     target_link_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wl,--gc-sections --specs=nano.specs)
+    
+    get_target_property(TARGET_SOFTDEVICE ${TARGET} SOFTDEVICE)
+    if(TARGET_SOFTDEVICE)
+        string(TOUPPER ${TARGET_SOFTDEVICE} TARGET_SOFTDEVICE)
+        target_compile_definitions(${TARGET} PRIVATE -D${TARGET_SOFTDEVICE})
+    endif()
 endfunction()
 
 function(nrf52_target TARGET)
@@ -165,3 +169,35 @@ function(nrf52_target TARGET)
         target_link_libraries(${TARGET} PRIVATE -lc -lnosys -lm)
     endif()
 endfunction()
+
+function(nrf52_add_softdevice_target TARGET)
+    cmake_parse_arguments(SOFTDEVICE "" "ADAPTER;SOFTDEVICE" "" ${ARGN})
+    if(NOT SOFTDEVICE_ADAPTER)
+        set(SOFTDEVICE_ADAPTER jlink)
+        message(STATUS "No ADAPTER specified using defalut adapter \"${SOFTDEVICE_ADAPTER}\"")
+    endif()
+    if(NOT SOFTDEVICE_SOFTDEVICE)
+        message(FATAL_ERROR "SoftDevice type must be specified using SOFTDEVICE <S140, S132, etc>")
+    endif()
+
+    find_program(OPENOCD openocd)
+    if(NOT OPENOCD)
+        message(FATAL_ERROR "Cannot find openocd executable")
+    endif()
+
+    string(TOLOWER ${SOFTDEVICE_SOFTDEVICE} SOFTDEVICE_SOFTDEVICE_LOWER)
+
+    file(GLOB SOFTDEVICE_FIRMWARE "${NRF5_SDK_PATH}/components/softdevice/${SOFTDEVICE_SOFTDEVICE_LOWER}/hex/*.hex")
+    if(NOT SOFTDEVICE_FIRMWARE)
+        message(FATAL_ERROR "Cannot find SoftDevice firmware")
+    endif()
+
+    set(OPENOCD_ARGS
+        -f "interface/${SOFTDEVICE_ADAPTER}.cfg"
+        -c "transport select swd"
+        -f "target/nrf52.cfg"
+        -c "program \"${SOFTDEVICE_FIRMWARE}\" exit"
+    )
+    add_custom_target(${TARGET} COMMAND ${OPENOCD} ${OPENOCD_ARGS} DEPENDS ${SOFTDEVICE_FIRMWARE})
+endfunction()
+
