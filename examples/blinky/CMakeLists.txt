@@ -1,4 +1,4 @@
-set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../../nrf52.cmake)
+set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/nrf52.cmake)
 cmake_minimum_required(VERSION 3.8)
 
 project(blinky C ASM)
