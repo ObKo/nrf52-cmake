@@ -8,5 +8,5 @@ set_target_properties(blinky-poll PROPERTIES NRF52_CHIP NRF52832-QFAB)
 nrf52_target(blinky-poll)
 
 add_executable(blinky-irq blinky-irq.c)
-set_target_properties(blinky-irq PROPERTIES NRF52_CHIP NRF52832-QFAB)
+set_target_properties(blinky-irq PROPERTIES NRF52_CHIP NRF52832)
 nrf52_target(blinky-irq)

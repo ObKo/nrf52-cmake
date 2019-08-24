@@ -129,7 +129,7 @@ foreach(COMP ${SoftDevice_FIND_COMPONENTS})
         message(WARNING "Cannot find SoftDevice firmware file")
     else()
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${COMP}.o"
-            COMMAND arm-none-eabi-objcopy ARGS "${SoftDevice_${COMP}_FIRMWARE}" --prefix-sections .sd --gap-fill 0xFF -B armv7e-m -O elf32-littlearm "${CMAKE_CURRENT_BINARY_DIR}/${COMP}.o"
+            COMMAND ${CMAKE_OBJCOPY} ARGS "${SoftDevice_${COMP}_FIRMWARE}" --prefix-sections .sd --gap-fill 0xFF -B armv7e-m -O elf32-littlearm "${CMAKE_CURRENT_BINARY_DIR}/${COMP}.o"
             MAIN_DEPENDENCY "${SoftDevice_${COMP}_FIRMWARE}"
         )
     endif()
