@@ -10,9 +10,3 @@ nrf52_target(blinky-poll)
 add_executable(blinky-irq blinky-irq.c)
 set_target_properties(blinky-irq PROPERTIES NRF52_CHIP NRF52832-QFAB)
 nrf52_target(blinky-irq)
-
-add_executable(blinky-poll-softdevice blinky-poll.c)
-set_target_properties(blinky-poll-softdevice PROPERTIES NRF52_CHIP NRF52832-QFAA SOFTDEVICE S132)
-nrf52_target(blinky-poll-softdevice)
-
-nrf52_add_softdevice_target(softdevice SOFTDEVICE S132)

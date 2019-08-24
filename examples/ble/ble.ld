@@ -5,6 +5,7 @@ GROUP(-lgcc -lc -lnosys)
 
 MEMORY
 {
+  /*SOFTDEVICE (rx) : ORIGIN = 0x00000, LENGTH = 0x26000*/
   FLASH (rx) : ORIGIN = 0x26000, LENGTH = 0x5a000
   RAM (rwx) :  ORIGIN = 0x20002210, LENGTH = 0xddf0
 }
@@ -30,5 +31,13 @@ SECTIONS
 
 } INSERT AFTER .text
 
+
+SECTIONS
+{
+  .softdevice :
+  {
+    KEEP(*(.sd.*))
+  } > SOFTDEVICE
+}
 
 INCLUDE "nrf_common.ld"

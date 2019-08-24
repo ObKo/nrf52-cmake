@@ -23,6 +23,8 @@ else()
      file(TO_CMAKE_PATH "${NRF5_SDK_PATH}" NRF5_SDK_PATH)
 endif()
 
+include(nrf52-linker)
+
 set(TOOLCHAIN_BIN_PATH "${TOOLCHAIN_PREFIX}/bin")
 set(TOOLCHAIN_INC_PATH "${TOOLCHAIN_PREFIX}/${TOOLCHAIN_TRIPLET}/include")
 set(TOOLCHAIN_LIB_PATH "${TOOLCHAIN_PREFIX}/${TOOLCHAIN_TRIPLET}/lib")
@@ -61,7 +63,7 @@ function(nrf52_get_chip TARGET CHIP VARIANT)
 endfunction()
 
 function(nrf52_add_sdk_startup TARGET)
-    get_target_property(TARGET_NO_SDK ${TARGET} NO_SDK)
+    get_target_property(TARGET_NO_SDK ${TARGET} NRF52_NO_SDK)
     if(TARGET_NO_SDK)
         return()
     endif()
@@ -71,24 +73,24 @@ function(nrf52_add_sdk_startup TARGET)
     
     nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_VARIANT)
     
-    unset(STARTUP_FILE CACHE)
-    find_file(STARTUP_FILE 
+    unset(NRF52_STARTUP_FILE CACHE)
+    find_file(NRF52_STARTUP_FILE
         NAMES gcc_startup_nrf52${NRF52_CHIP}.S gcc_startup_nrf52.S
         PATHS "${NRF5_SDK_PATH}/modules/nrfx/mdk"
         NO_DEFAULT_PATH
     )
     
-    unset(SYSTEM_FILE CACHE)
-    find_file(SYSTEM_FILE 
+    unset(NRF52_SYSTEM_FILE CACHE)
+    find_file(NRF52_SYSTEM_FILE
         NAMES system_nrf52${NRF52_CHIP}.c system_nrf52.c
         PATHS "${NRF5_SDK_PATH}/modules/nrfx/mdk"
         NO_DEFAULT_PATH
     )
     
-    if((NOT STARTUP_FILE) OR (NOT SYSTEM_FILE))
+    if((NOT NRF52_STARTUP_FILE) OR (NOT NRF52_SYSTEM_FILE))
         message(WARNING "Cannot find startup sources for target ${TARGET}, check NRF5_SDK_PATH variable")
     else()
-        target_sources(${TARGET} PRIVATE "${STARTUP_FILE}" "${SYSTEM_FILE}")
+        target_sources(${TARGET} PRIVATE "${NRF52_STARTUP_FILE}" "${NRF52_SYSTEM_FILE}")
     endif()
 endfunction()
 
@@ -97,35 +99,14 @@ function(nrf52_add_linker_script TARGET SCRIPT)
     target_link_options(${TARGET} PRIVATE -L "${NRF5_SDK_PATH}/modules/nrfx/mdk")
 endfunction()
 
-function(nrf52_add_sdk_linker_script TARGET)
-    get_target_property(TARGET_SOFTDEVICE ${TARGET} SOFTDEVICE)
-    get_target_property(TARGET_CUSTOM_LINKER_SCRIPT ${TARGET} CUSTOM_LINKER_SCRIPT)
-    if(TARGET_CUSTOM_LINKER_SCRIPT)
+function(nrf52_generate_linker_script TARGET)
+    get_target_property(TARGET_NO_LINKER_SCRIPT ${TARGET} NRF52_NO_LINKER_SCRIPT)
+    if(TARGET_NO_LINKER_SCRIPT)
         return()
     endif()
-    nrf52_get_chip(${TARGET} NRF52_CHIP NRF52_CHIP_VARIANT)
-    
-    if(TARGET_SOFTDEVICE)
-        string(TOLOWER ${NRF52_CHIP_VARIANT} NRF52_CHIP_VARIANT_LOWER)
-        string(TOLOWER ${TARGET_SOFTDEVICE} TARGET_SOFTDEVICE_LOWER)
-        set(LINKER_SCRIPT_PATH components/softdevice/${TARGET_SOFTDEVICE_LOWER}/toolchain/armgcc)
-        set(LINKER_SCRIPT_NAMES armgcc_${TARGET_SOFTDEVICE_LOWER}_nrf52${NRF52_CHIP}_xx${NRF52_CHIP_VARIANT_LOWER}.ld)
-    else()
-        string(TOLOWER ${NRF52_CHIP_VARIANT} NRF52_CHIP_VARIANT_LOWER)
-        set(LINKER_SCRIPT_PATH modules/nrfx/mdk)
-        set(LINKER_SCRIPT_NAMES nrf52${NRF52_CHIP}_xx${NRF52_CHIP_VARIANT_LOWER}.ld nrf52_xx${NRF52_CHIP_VARIANT_LOWER}.ld)
-    endif()
-    unset(LINKER_FILE CACHE)
-    find_file(LINKER_FILE 
-        NAMES ${LINKER_SCRIPT_NAMES}
-        PATHS "${NRF5_SDK_PATH}/${LINKER_SCRIPT_PATH}"
-        NO_DEFAULT_PATH
-    )
-    if(NOT LINKER_FILE)
-        message(WARNING "Cannot find linker script for target ${TARGET}, check NRF5_SDK_PATH or add your own script using nrf52_add_linker_script()")
-    else()
-        nrf52_add_linker_script(${TARGET} "${LINKER_FILE}")
-    endif()
+    set(NRF52_LINKER_FILE ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.ld)
+    nrf52_linker_generate_script(${TARGET} "${NRF52_LINKER_FILE}")
+    nrf52_add_linker_script(${TARGET} "${NRF52_LINKER_FILE}")
 endfunction()
 
 function(nrf52_configure_compiler TARGET)
@@ -150,7 +131,7 @@ function(nrf52_configure_compiler TARGET)
     endif()
     
     target_compile_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wall -ffunction-sections -fdata-sections -fno-strict-aliasing -fno-builtin -fshort-enums $<$<CONFIG:Release>:-Os>)
-    target_compile_definitions(${TARGET} PRIVATE -DNRF52 -DNRF52${NRF52_CHIP}_XX${NRF52_CHIP_VARIANT} -D${NRF52_CHIP_INTERNAL})
+    target_compile_definitions(${TARGET} PRIVATE -DNRF52${NRF52_CHIP}_XX${NRF52_CHIP_VARIANT})
     target_link_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wl,--gc-sections --specs=nano.specs $<$<CONFIG:Release>:-Os>)
 endfunction()
 
@@ -159,39 +140,7 @@ function(nrf52_target TARGET)
     nrf52_configure_compiler(${TARGET})
     if(TARGET_TYPE STREQUAL EXECUTABLE)
         nrf52_add_sdk_startup(${TARGET})
-        nrf52_add_sdk_linker_script(${TARGET})
+        nrf52_generate_linker_script(${TARGET})
         target_link_libraries(${TARGET} PRIVATE -lc -lnosys -lm)
     endif()
 endfunction()
-
-function(nrf52_add_softdevice_target TARGET)
-    cmake_parse_arguments(SOFTDEVICE "" "ADAPTER;SOFTDEVICE" "" ${ARGN})
-    if(NOT SOFTDEVICE_ADAPTER)
-        set(SOFTDEVICE_ADAPTER jlink)
-        message(STATUS "No ADAPTER specified using defalut adapter \"${SOFTDEVICE_ADAPTER}\"")
-    endif()
-    if(NOT SOFTDEVICE_SOFTDEVICE)
-        message(FATAL_ERROR "SoftDevice type must be specified using SOFTDEVICE <S140, S132, etc>")
-    endif()
-
-    find_program(OPENOCD openocd)
-    if(NOT OPENOCD)
-        message(FATAL_ERROR "Cannot find openocd executable")
-    endif()
-
-    string(TOLOWER ${SOFTDEVICE_SOFTDEVICE} SOFTDEVICE_SOFTDEVICE_LOWER)
-
-    file(GLOB SOFTDEVICE_FIRMWARE "${NRF5_SDK_PATH}/components/softdevice/${SOFTDEVICE_SOFTDEVICE_LOWER}/hex/*.hex")
-    if(NOT SOFTDEVICE_FIRMWARE)
-        message(FATAL_ERROR "Cannot find SoftDevice firmware")
-    endif()
-
-    set(OPENOCD_ARGS
-        -f "interface/${SOFTDEVICE_ADAPTER}.cfg"
-        -c "transport select swd"
-        -f "target/nrf52.cfg"
-        -c "program \"${SOFTDEVICE_FIRMWARE}\" exit"
-    )
-    add_custom_target(${TARGET} COMMAND ${OPENOCD} ${OPENOCD_ARGS} DEPENDS ${SOFTDEVICE_FIRMWARE})
-endfunction()
-
