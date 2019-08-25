@@ -122,7 +122,7 @@ SoftDevice support implemented as cmake package, so you'll need to use
 ```
 find_package(SoftDevice COMPONENTS <variant> REQUIRED)
 ```
-where <variant> - SoftDevice variant(s) (S112, S132, S140, etc.)
+where `<variant>` - SoftDevice variant(s) (S112, S132, S140, etc.)
 Package will add following `IMPORTED` targets, that can be linked using 
 `target_link_libraries`:
 
