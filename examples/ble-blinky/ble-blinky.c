@@ -5,8 +5,10 @@
 #include <string.h>
 
 // LED GPIOs on some chinese shield
-#define BLINKY_PIN      30
-#define CONECTED_PIN    31
+#define BLINKY_PIN          30
+#define CONECTED_PIN        31
+
+#define GATT_MTU_MAX_SIZE   128
 
 extern volatile uint32_t __data_start__;
 nrf_nvic_state_t nrf_nvic_state;
@@ -33,7 +35,7 @@ static ble_gap_adv_params_t advertiseParams;
 static uint8_t advertiseHandle = BLE_GAP_ADV_SET_HANDLE_NOT_SET;
 static char name[] = "nRF52-blinky";
 
-static uint8_t bleEvtBuffer[BLE_EVT_LEN_MAX(BLE_GATT_ATT_MTU_DEFAULT)];
+static uint8_t bleEvtBuffer[BLE_EVT_LEN_MAX(GATT_MTU_MAX_SIZE)];
 
 ble_gatts_char_handles_t blinkyCharHandle;
 static uint8_t blinkyCharValue = 0;
@@ -62,15 +64,26 @@ static uint32_t sdInit(uint8_t tag)
     ble_cfg.conn_cfg.conn_cfg_tag                     = tag;
     ble_cfg.conn_cfg.params.gap_conn_cfg.conn_count   = BLE_GAP_CONN_COUNT_DEFAULT;
     ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = BLE_GAP_EVENT_LENGTH_DEFAULT;
-
     result = sd_ble_cfg_set(BLE_CONN_CFG_GAP, &ble_cfg, ramStart);
     if (result != NRF_SUCCESS)
         return result;
 
     memset(&ble_cfg, 0, sizeof(ble_cfg));
-    ble_cfg.gap_cfg.role_count_cfg.periph_role_count  = BLE_GAP_ROLE_COUNT_PERIPH_DEFAULT;
+    ble_cfg.conn_cfg.conn_cfg_tag                 = tag;
+    ble_cfg.conn_cfg.params.gatt_conn_cfg.att_mtu = GATT_MTU_MAX_SIZE;
+    result = sd_ble_cfg_set(BLE_CONN_CFG_GATT, &ble_cfg, ramStart);
+    if (result != NRF_SUCCESS)
+        return result;
 
+    memset(&ble_cfg, 0, sizeof(ble_cfg));
+    ble_cfg.gap_cfg.role_count_cfg.periph_role_count  = BLE_GAP_ROLE_COUNT_PERIPH_DEFAULT;
     result = sd_ble_cfg_set(BLE_GAP_CFG_ROLE_COUNT, &ble_cfg, ramStart);
+    if (result != NRF_SUCCESS)
+        return result;
+
+    memset(&ble_cfg, 0x00, sizeof(ble_cfg));
+    ble_cfg.gatts_cfg.service_changed.service_changed = 1;
+    result = sd_ble_cfg_set(BLE_GATTS_CFG_SERVICE_CHANGED, &ble_cfg, ramStart);
     if (result != NRF_SUCCESS)
         return result;
 
@@ -174,14 +187,23 @@ void SD_EVT_IRQHandler(void)
             advertizeStart();
             NRF_GPIO->OUTCLR = (1 << CONECTED_PIN);
         }
+        else if (evt->header.evt_id == BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST)
+        {
+            uint16_t mtu = evt->evt.gatts_evt.params.exchange_mtu_request.client_rx_mtu;
+            if (mtu > GATT_MTU_MAX_SIZE)
+                mtu = GATT_MTU_MAX_SIZE;
+
+            sd_ble_gatts_exchange_mtu_reply(evt->evt.gatts_evt.conn_handle, GATT_MTU_MAX_SIZE);
+        }
         else if (evt->header.evt_id == BLE_GATTS_EVT_WRITE)
         {
             if (blinkyCharValue)
                 NRF_GPIO->OUTSET = (1 << BLINKY_PIN);
             else
                 NRF_GPIO->OUTCLR = (1 << BLINKY_PIN);
-
         }
+        else
+            continue;
     }
 }
 

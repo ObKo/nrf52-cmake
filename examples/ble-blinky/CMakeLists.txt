@@ -12,7 +12,7 @@ set_target_properties(ble-blinky PROPERTIES
 )
 target_link_libraries(ble-blinky PRIVATE SoftDevice::S132)
 nrf52_target(ble-blinky)
-softdevice_generate_linker_script(ble-blinky SOFTDEVICE S132 RAM 0x2300)
+softdevice_generate_linker_script(ble-blinky SOFTDEVICE S132 RAM 0x2600)
 
 # Add custom make target for flashing SoftDevice firmware
 softdevice_add_flash_target(softdevice FIRMWARE ${SoftDevice_S132_FIRMWARE})
