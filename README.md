@@ -143,3 +143,45 @@ specifies amount of RAM that will be used by SoftDevice firmware.
 add custom target `<target>` that will flash SoftDevice firmware to device using 
 openocd and `<adapter>` hardware adapter (jlink by default). SoftDevice variant 
 (S140, S132, S332, etc) should be specified by `SOFTDEVICE` parameter.
+
+### ChibiOS
+nrf52-cmake provides support for ChibiOS RTOS building. Example located 
+[here](examples/chibios)
+
+You'll need both [ChibiOS](https://github.com/ChibiOS/ChibiOS) (version 19.1.x) and 
+[ChibiOS-Contrib](https://github.com/ChibiOS/ChibiOS-Contrib) to run ChibiOS on NRF52 
+platform. Only NRF52832 is currently supported by ChibiOS.
+
+ChibiOS support implemented as cmake package:
+```
+find_package(ChibiOS COMPONENTS Core HAL NRF5 REQUIRED)
+```
+To use this package you'll need to specify ChibiOS location:
+```
+$ cmake -DChibiOS_ROOT=<path> -DChibiOS_Contrib_ROOT=<path> ../
+```
+
+Package will add many `IMPORTED` libraries with ChibiOS modules' source code:
+
+* `ChibiOS::RT` and `ChibiOS::NIL` - kernel core (NIL or RT)
+
+* `ChibiOS::HAL` - ChibiOS HAL
+
+* `ChibiOS::NRF52832` - kernel support for NRF52832
+
+* `ChibiOS::HAL::NRF52832` - HAL support for NRF52832
+
+* `ChibiOS::HAL::*` and `ChibiOS::HAL::NRF52832::*` - HAL drivers (e.g. 
+`ChibiOS::HAL::I2C` and `ChibiOS::HAL::NRF52832::I2C` - support for I2C driver)
+
+To help with HAL modules there is function 
+`nrf52_linker_generate_script(<target> PLATFORM NRF52832 CONFIG <path to halconf.h>)`
+which links `<target>` with HAL drivers listed in `halconf.h`
+
+Currently, nrf52-cmake does not generates linker script for ChibiOS, you'll need to
+provide own (see [examples/chibios](examples/chibios)).
+
+Also, there is function `ChibiOS_set_stack_sizes(<target> [DEFAULT] [MAIN <size> PROCESS <size>])`
+which sets stack sizes for ChibiOS linker script. Calling `ChibiOS_set_stack_sizes` 
+is mandatory for now.
+

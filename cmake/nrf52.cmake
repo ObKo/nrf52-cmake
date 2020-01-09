@@ -130,9 +130,9 @@ function(nrf52_configure_compiler TARGET)
         target_link_options(${TARGET} PRIVATE -mcpu=cortex-m4 -mfloat-abi=soft)
     endif()
     
-    target_compile_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wall -ffunction-sections -fdata-sections -fno-strict-aliasing -fno-builtin -fshort-enums $<$<CONFIG:Release>:-Os>)
+    target_compile_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wall -ffunction-sections -fdata-sections -fno-strict-aliasing -fno-builtin -fshort-enums $<$<CONFIG:Release>:-Os -flto>)
     target_compile_definitions(${TARGET} PRIVATE -DNRF52${NRF52_CHIP}_XX${NRF52_CHIP_VARIANT})
-    target_link_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wl,--gc-sections --specs=nano.specs $<$<CONFIG:Release>:-Os>)
+    target_link_options(${TARGET} PRIVATE -mthumb -mabi=aapcs -Wl,--gc-sections --specs=nano.specs $<$<CONFIG:Release>:-Os -flto>)
 endfunction()
 
 function(nrf52_target TARGET)
